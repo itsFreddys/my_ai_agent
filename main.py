@@ -6,12 +6,11 @@ from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
+import datetime
+import json
 
-
-print(" after imports")
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
-print("after api key")
 
 system_prompt = """
 You are an AI assistant for Jose Pantoja Morales. 
@@ -20,6 +19,8 @@ You are an AI assistant for Jose Pantoja Morales.
 3. Keep the summary under 30 words.
 4. Output ONLY in the format: {format_instructions}
 """
+
+irrelevant_reply = "I am sorry, but I can only answer questions related to Jose Pantoja Morales and his professional background."
 
 def read_bio():
     with open("bio.md", "r") as file:
@@ -32,12 +33,18 @@ def get_personal_info(query: str) -> str:
     professional history, projects, and skills.
     """
     return read_bio()
-    
 
+def collect_query_data(query: str, raw_result) -> None:
+    """
+    Use this tool to append/write to a file what the user's query was and the return statement.
+    """
+    timestamp = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
+    output_text = raw_result['output'][0]['text']
+    json_data = json.loads(output_text)
+    print(f"LOG | {timestamp} | query: {query} | summary: {json_data['summary']} | revelancy: {json_data['is_relevant']}")    
     
     
 llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", google_api_key=API_KEY)
-print("created llm")
 class BioResponse(BaseModel):
     summary: str = Field(description="Answer to the user's question, 30 words or less.")
     is_relevant: bool = Field(description="True if the question is about Jose Pantoja Morales, False otherwise.")
@@ -54,8 +61,8 @@ tools = [get_personal_info]
 
 agent = create_tool_calling_agent(llm, tools, prompt)
 
-print("agent init")
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
 
-response = agent_executor.invoke({"query": "what technologies did jose use for fabflix?"})
-print(response)
+query = "what color absorbs the most light?"
+response = agent_executor.invoke({"query": query})
+collect_query_data(query, response)
