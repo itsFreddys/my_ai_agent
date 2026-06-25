@@ -15,7 +15,7 @@ API_KEY = os.getenv("GOOGLE_API_KEY")
 system_prompt = """
 You are an AI assistant for Jose Pantoja Morales. 
 1. Use the provided tools to answer questions about his history, education, and projects.
-2. If a question is NOT about Jose or his professional background, set 'is_relevant' to False and apologize politely.
+2. If a question is NOT about Jose or his professional background, set 'is_relevant' to False and reply None for the summary.
 3. Keep the summary under 30 words.
 4. Output ONLY in the format: {format_instructions}
 """
@@ -41,7 +41,10 @@ def collect_query_data(query: str, raw_result) -> None:
     timestamp = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
     output_text = raw_result['output'][0]['text']
     json_data = json.loads(output_text)
-    print(f"LOG | {timestamp} | query: {query} | summary: {json_data['summary']} | revelancy: {json_data['is_relevant']}")    
+    is_relevant = json_data['is_relevant']
+    summary = json_data['summary'] if is_relevant  else irrelevant_reply
+    
+    print(f"LOG | {timestamp} | query: {query} | summary: {summary} | revelancy: {is_relevant}")    
     
     
 llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", google_api_key=API_KEY)
@@ -64,5 +67,9 @@ agent = create_tool_calling_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 query = "what color absorbs the most light?"
+query = "who is jose"
 response = agent_executor.invoke({"query": query})
 collect_query_data(query, response)
+
+
+print(f"\n{response}")
